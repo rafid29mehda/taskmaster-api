@@ -1,4 +1,4 @@
-# Task Management API
+# TaskMaster API
 
 A RESTful API for managing tasks with user authentication, built with Flask and PostgreSQL.
 
