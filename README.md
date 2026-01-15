@@ -32,4 +32,18 @@ A RESTful API for managing tasks with user authentication, built with Flask and 
 - `PUT /api/tasks/<id>` - Update a task
 - `DELETE /api/tasks/<id>` - Delete a task
 
+## Future Improvements
+
+This project is actively being developed, and I plan to implement the following enhancements:
+
+- **CI/CD Pipeline**: Implement automated testing and deployment using GitHub Actions
+- **Containerization**: Dockerize the application for consistent deployment across environments
+- **Web Dashboard**: Build a responsive web interface 
+- **Email Verification**: Add email verification for new user registrations
+- **Password Reset**: Implement secure password reset functionality
+- **Task Categories**: Allow users to organize tasks into categories/projects
+- **Task Priority & Due Dates**: Add priority levels and deadline tracking
+- **Task Sharing**: Enable task collaboration between users
+- **Search & Filtering**: Advanced search and filtering capabilities for tasks
+
 
