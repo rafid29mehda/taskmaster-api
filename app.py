@@ -1,77 +1,56 @@
+"""
+Application with routes
+"""
 from flask import Flask, request, jsonify
-from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import JWTManager, create_access_token, jwt_required, get_jwt_identity
-from datetime import datetime, timedelta
-from werkzeug.security import generate_password_hash, check_password_hash
 from flask_cors import CORS
-import os
 
-# Initialize Flask app
+from config import Config
+from models import db, User, Task
+
 app = Flask(__name__)
 CORS(app)
 
-# Configuration
-app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL', 'postgresql://localhost/taskdb')
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET_KEY', 'secret-key')
-app.config['JWT_ACCESS_TOKEN_EXPIRES'] = timedelta(hours=1)
+# Load configuration
+app.config.from_object(Config)
 
 # Initialize extensions
-db = SQLAlchemy(app)
+db.init_app(app)
 jwt = JWTManager(app)
-
-# Database Models
-class User(db.Model):
-    """User model for storing user information"""
-    id = db.Column(db.Integer, primary_key=True)
-    username = db.Column(db.String(80), unique=True, nullable=False)
-    email = db.Column(db.String(120), unique=True, nullable=False)
-    password_hash = db.Column(db.String(200), nullable=False)
-    tasks = db.relationship('Task', backref='owner', lazy=True)
-
-    def set_password(self, password):
-        """Hash and set user password"""
-        self.password_hash = generate_password_hash(password)
-
-    def check_password(self, password):
-        """Verify user password"""
-        return check_password_hash(self.password_hash, password)
-
-
-class Task(db.Model):
-    """Task model for storing task information"""
-    id = db.Column(db.Integer, primary_key=True)
-    title = db.Column(db.String(200), nullable=False)
-    description = db.Column(db.Text)
-    status = db.Column(db.String(20), default='pending')
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
-
 
 # Create database tables
 with app.app_context():
     db.create_all()
 
 
-# API Routes
+# ==================== ROUTES ====================
+
+@app.route('/')
+def home():
+    """API home endpoint"""
+    return jsonify({
+        'message': 'Task Management API',
+        'version': '1.0',
+        'endpoints': {
+            'register': '/api/register [POST]',
+            'login': '/api/login [POST]',
+            'tasks': '/api/tasks [GET, POST]',
+            'task_detail': '/api/tasks/<id> [GET, PUT, DELETE]'
+        }
+    })
+
+
 @app.route('/api/register', methods=['POST'])
 def register():
-    """
-    Register a new user
-    Expects JSON: {"username": "john", "email": "john@example.com", "password": "pass123"}
-    """
+    """Register a new user"""
     data = request.get_json()
     
-    # Check if username already exists
     if User.query.filter_by(username=data['username']).first():
         return jsonify({'message': 'Username already exists'}), 400
     
-    # Check if email already exists
     if User.query.filter_by(email=data['email']).first():
         return jsonify({'message': 'Email already exists'}), 400
     
-    # Create new user
     new_user = User(username=data['username'], email=data['email'])
     new_user.set_password(data['password'])
     
@@ -83,20 +62,13 @@ def register():
 
 @app.route('/api/login', methods=['POST'])
 def login():
-    """
-    Login user and return JWT token
-    Expects JSON: {"username": "john", "password": "pass123"}
-    """
+    """Login user and return JWT token"""
     data = request.get_json()
-    
-    # Find user by username
     user = User.query.filter_by(username=data['username']).first()
     
-    # Check if user exists and password is correct
     if not user or not user.check_password(data['password']):
         return jsonify({'message': 'Invalid credentials'}), 401
     
-    # Create access token
     access_token = create_access_token(identity=str(user.id))
     return jsonify({
         'access_token': access_token,
@@ -107,14 +79,10 @@ def login():
 @app.route('/api/tasks', methods=['GET'])
 @jwt_required()
 def get_tasks():
-    """
-    Get all tasks for the logged-in user
-    Requires: Authorization header with JWT token
-    """
+    """Get all tasks for the logged-in user"""
     current_user_id = get_jwt_identity()
     tasks = Task.query.filter_by(user_id=current_user_id).all()
     
-    # Convert tasks to dictionary format
     tasks_list = [{
         'id': task.id,
         'title': task.title,
@@ -130,15 +98,10 @@ def get_tasks():
 @app.route('/api/tasks', methods=['POST'])
 @jwt_required()
 def create_task():
-    """
-    Create a new task
-    Expects JSON: {"title": "Task name", "description": "Details", "status": "pending"}
-    Requires: Authorization header with JWT token
-    """
+    """Create a new task"""
     current_user_id = get_jwt_identity()
     data = request.get_json()
     
-    # Create new task
     new_task = Task(
         title=data['title'],
         description=data.get('description', ''),
@@ -163,10 +126,7 @@ def create_task():
 @app.route('/api/tasks/<int:task_id>', methods=['GET'])
 @jwt_required()
 def get_task(task_id):
-    """
-    Get a specific task by ID
-    Requires: Authorization header with JWT token
-    """
+    """Get a specific task by ID"""
     current_user_id = get_jwt_identity()
     task = Task.query.filter_by(id=task_id, user_id=current_user_id).first()
     
@@ -186,11 +146,7 @@ def get_task(task_id):
 @app.route('/api/tasks/<int:task_id>', methods=['PUT'])
 @jwt_required()
 def update_task(task_id):
-    """
-    Update a task
-    Expects JSON: {"title": "New title", "description": "New details", "status": "completed"}
-    Requires: Authorization header with JWT token
-    """
+    """Update a task"""
     current_user_id = get_jwt_identity()
     task = Task.query.filter_by(id=task_id, user_id=current_user_id).first()
     
@@ -198,8 +154,6 @@ def update_task(task_id):
         return jsonify({'message': 'Task not found'}), 404
     
     data = request.get_json()
-    
-    # Update task fields
     task.title = data.get('title', task.title)
     task.description = data.get('description', task.description)
     task.status = data.get('status', task.status)
@@ -220,10 +174,7 @@ def update_task(task_id):
 @app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
 @jwt_required()
 def delete_task(task_id):
-    """
-    Delete a task
-    Requires: Authorization header with JWT token
-    """
+    """Delete a task"""
     current_user_id = get_jwt_identity()
     task = Task.query.filter_by(id=task_id, user_id=current_user_id).first()
     
@@ -236,22 +187,5 @@ def delete_task(task_id):
     return jsonify({'message': 'Task deleted successfully'}), 200
 
 
-# Root endpoint
-@app.route('/')
-def home():
-    """API home endpoint"""
-    return jsonify({
-        'message': 'Task Management API',
-        'version': '1.0',
-        'endpoints': {
-            'register': '/api/register [POST]',
-            'login': '/api/login [POST]',
-            'tasks': '/api/tasks [GET, POST]',
-            'task_detail': '/api/tasks/<id> [GET, PUT, DELETE]'
-        }
-    })
-
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
-
-
