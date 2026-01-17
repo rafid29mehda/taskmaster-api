@@ -37,7 +37,6 @@ A RESTful API for managing tasks with user authentication, built with Flask and 
 This project is actively being developed, and I plan to implement the following enhancements:
 
 - **CI/CD Pipeline**: Implement automated testing and deployment using GitHub Actions
-- **Containerization**: Dockerize the application for consistent deployment across environments
 - **Web Dashboard**: Build a responsive web interface 
 - **Email Verification**: Add email verification for new user registrations
 - **Password Reset**: Implement secure password reset functionality
